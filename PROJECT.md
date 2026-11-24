@@ -1,3 +1,3 @@
 # Sóstó Gyógyszertár
 
-Statikus HTML/CSS/JavaScript weboldal. Az eredeti tárhely kompatibilitása megmarad. A fejlesztési környezetben csak fiktív adatok használhatók; nincs éles betegadat-fogadás. A Firebase és a gyógyszeradatforrások integrációja külön konfigurálandó. 
+Statikus HTML/CSS/JS, kizárólag fiktív helyi adatok. A Firebase és az NNGYK/NEAK automatikus integráció nincs bekapcsolva. A régi tartalmak és képek teljes migrációja további feladat.
