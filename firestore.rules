@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function admin(){return request.auth != null && request.auth.token.pharmacyAdmin == true;}
+  function str(v,n){return v is string && v.size()>0 && v.size()<=n;}
+  function status(v){return v in ['Új','Előkészítés alatt','Telefonon értesítve','Lezárva'];}
+  match /requests/{id} {
+   allow create: if request.resource.data.keys().hasAll(['name','phone','email','message','status','createdAt']) && request.resource.data.keys().hasOnly(['name','phone','email','message','status','createdAt']) && str(request.resource.data.name,120) && str(request.resource.data.phone,40) && str(request.resource.data.email,254) && str(request.resource.data.message,2000) && request.resource.data.status=='Új' && request.resource.data.createdAt==request.time;
+   allow read: if admin();
+   allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt','updatedBy']) && status(request.resource.data.status) && request.resource.data.updatedAt==request.time && request.resource.data.updatedBy==request.auth.uid;
+   allow delete: if false;
+  }
+  match /{document=**} {allow read,write: if false;}
+ }
+}

@@ -1,0 +1,31 @@
+const cfg=window.SOSTO_CONFIG;
+if(cfg?.mode==='live')start().catch(()=>{const e=document.querySelector('#result,#auth-status');if(e)e.textContent='A szolgáltatás jelenleg nem elérhető.'});
+async function start(){
+ if(!cfg.firebase?.apiKey||!cfg.firebase?.projectId||!cfg.privacyPolicyUrl||!cfg.appCheckSiteKey)throw Error('Configuration incomplete');
+ const privacy=new URL(cfg.privacyPolicyUrl,location.href);if(privacy.protocol!=='https:')throw Error('Privacy URL must use HTTPS');
+ const version='12.6.0',base='https://www.gstatic.com/firebasejs/'+version+'/';
+ const [app,auth,db,check]=await Promise.all(['firebase-app.js','firebase-auth.js','firebase-firestore.js','firebase-app-check.js'].map(p=>import(base+p)));
+ const instance=app.initializeApp(cfg.firebase);check.initializeAppCheck(instance,{provider:new check.ReCaptchaEnterpriseProvider(cfg.appCheckSiteKey),isTokenAutoRefreshEnabled:true});
+ const store=db.getFirestore(instance);const login=auth.getAuth(instance);await auth.setPersistence(login,auth.inMemoryPersistence);
+ const statuses=['Új','Előkészítés alatt','Telefonon értesítve','Lezárva'];
+ const f=document.querySelector('#request');
+ if(f){
+ const result=document.querySelector('#result'),send=f.querySelector('[type=submit]');
+ document.querySelector('#fill').hidden=true;document.querySelector('#local-info').hidden=true;
+ const policy=document.querySelector('#privacy-link');policy.href=privacy.href;document.querySelector('#privacy-check').hidden=false;document.querySelector('#privacy-read').required=true;
+ for(const k of ['name','phone','email','message']){f.elements[k].readOnly=false;f.elements[k].placeholder='';}
+ f.elements.name.maxLength=120;f.elements.phone.maxLength=40;f.elements.email.maxLength=254;f.elements.message.maxLength=2000;
+ f.onsubmit=async e=>{e.preventDefault();send.disabled=true;result.textContent='Küldés…';try{const data=Object.fromEntries(['name','phone','email','message'].map(k=>[k,f.elements[k].value.trim()]));if(Object.values(data).some(v=>!v))throw Error('Missing');await db.addDoc(db.collection(store,'requests'),{...data,status:'Új',createdAt:db.serverTimestamp()});f.reset();result.textContent='Az egyeztetési igény beérkezett.'}catch{result.textContent='Nem sikerült elküldeni az igényt. Kérjük, próbálja újra vagy telefonáljon.'}finally{send.disabled=false}};
+ send.disabled=false;
+ }
+ const records=document.querySelector('#records');if(!records)return;
+ const dashboard=document.querySelector('#dashboard'),panel=document.querySelector('#auth-panel'),status=document.querySelector('#auth-status'),logout=document.querySelector('#logout'),search=document.querySelector('#search'),filter=document.querySelector('#filter');
+ panel.hidden=false;document.querySelector('#reset').hidden=true;document.querySelector('#admin-local-info').hidden=true;
+ let rows=[],unsubscribe;
+ const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n};
+ function render(){document.querySelector('#stats').replaceChildren(...statuses.map(s=>{const d=el('div');d.append(el('b',String(rows.filter(r=>r.status===s).length)),document.createTextNode(s));return d}));const q=search.value.trim().toLocaleLowerCase('hu');const visible=rows.filter(r=>(!filter.value||r.status===filter.value)&&[r.id,r.name,r.message,r.email,r.phone].some(v=>String(v).toLocaleLowerCase('hu').includes(q)));document.querySelector('#count').textContent=visible.length+' / '+rows.length+' igény';records.replaceChildren();if(!visible.length)records.append(el('p','Nincs megjeleníthető igény.','empty'));for(const r of visible){const row=el('article',undefined,'desk-row'),person=el('div'),msg=el('div'),action=el('div');person.append(el('p','#'+r.id.slice(0,8)+' · '+(r.createdAt?.toDate()?.toLocaleString('hu-HU')||''),'eyebrow'),el('h3',r.name),el('small','Telefon: '+r.phone),el('small',r.email));msg.append(el('strong','Beteg üzenete'),el('p',r.message));action.append(el('span',r.status,'status-pill'));const sel=el('select');sel.setAttribute('aria-label','Igény állapota');statuses.forEach(s=>sel.add(new Option(s,s)));sel.value=r.status;sel.onchange=async()=>{sel.disabled=true;try{await db.updateDoc(db.doc(store,'requests',r.id),{status:sel.value,updatedAt:db.serverTimestamp(),updatedBy:login.currentUser.uid})}catch{status.textContent='Az állapot módosítása sikertelen.';sel.value=r.status}finally{sel.disabled=false}};action.append(sel);row.append(person,msg,action);records.append(row)}}
+ search.oninput=render;filter.onchange=render;
+ document.querySelector('#login-form').onsubmit=async e=>{e.preventDefault();const f=e.currentTarget,b=f.querySelector('button');b.disabled=true;status.textContent='Bejelentkezés…';try{await auth.signInWithEmailAndPassword(login,f.elements.email.value,f.elements.password.value);f.reset()}catch{status.textContent='Sikertelen bejelentkezés.'}finally{b.disabled=false}};
+ logout.onclick=()=>auth.signOut(login);
+ auth.onAuthStateChanged(login,async user=>{unsubscribe?.();rows=[];records.replaceChildren();dashboard.hidden=true;logout.hidden=true;panel.hidden=false;if(!user)return;try{const token=await user.getIdTokenResult();if(token.claims.pharmacyAdmin!==true){await auth.signOut(login);status.textContent='Nincs gyógyszertári jogosultsága.';return}if(login.currentUser?.uid!==user.uid)return;panel.hidden=true;dashboard.hidden=false;logout.hidden=false;status.textContent='';unsubscribe=db.onSnapshot(db.query(db.collection(store,'requests'),db.orderBy('createdAt','desc')),snap=>{rows=snap.docs.map(d=>({id:d.id,...d.data()}));render()},()=>{rows=[];render();status.textContent='Az igények betöltése sikertelen.'})}catch{status.textContent='A jogosultság ellenőrzése sikertelen.'}});
+}

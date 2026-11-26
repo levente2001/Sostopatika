@@ -1,4 +1,6 @@
+(()=>{const header=document.querySelector('header'),nav=header?.querySelector('nav');if(!nav)return;document.documentElement.classList.add('js-menu');nav.id='site-navigation';const button=document.createElement('button');button.type='button';button.className='menu-toggle';button.setAttribute('aria-controls',nav.id);button.setAttribute('aria-expanded','false');button.innerHTML='<span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>Menü</span>';header.insertBefore(button,nav);const set=open=>{button.setAttribute('aria-expanded',String(open));nav.classList.toggle('is-open',open);if(matchMedia('(max-width:1050px)').matches)nav.inert=!open;else nav.inert=false};button.onclick=()=>set(button.getAttribute('aria-expanded')!=='true');const mq=matchMedia('(max-width:1050px)');mq.addEventListener('change',()=>set(false));set(false);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&button.getAttribute('aria-expanded')==='true'){set(false);button.focus()}});const more=document.createElement('details');more.className='nav-more';more.innerHTML='<summary>További információk</summary><div class="nav-more-links"><a href="gyogyszerek.html">Gyógyszerek</a><a href="fizetes.html">Fizetés</a><a href="eszk.html">Segédeszközök</a><a href="egyeb2.html">Egyéb termékek</a><a href="homeopatia.html">Homeopátia</a><a href="akciok.html">Akciók</a><a href="hirek.html">Hírek</a><a href="ajanlott.html">Ajánlott oldalak</a></div>';nav.insertBefore(more,nav.lastElementChild);document.addEventListener('click',e=>{if(!more.contains(e.target))more.open=false});nav.querySelectorAll('a').forEach(a=>{if(new URL(a.href).pathname===location.pathname||location.pathname==='/'&&a.getAttribute('href')==='index.html')a.setAttribute('aria-current','page')});})();
 (()=> {
+if(window.SOSTO_CONFIG?.mode==="live")return;
 const key='sosto-demo-v2';
 try{localStorage.removeItem('sosto-demo-v1')}catch{}
 const statuses=['Új','Előkészítés alatt','Telefonon értesítve','Lezárva'];
@@ -14,6 +16,7 @@ const read=()=>{try{const raw=localStorage.getItem(key);return raw?JSON.parse(ra
 const save=x=>localStorage.setItem(key,JSON.stringify(x));
 const f=document.querySelector('#request');
 if(f){
+ f.querySelector('[type=submit]').disabled=false;
  document.querySelector('#fill').onclick=()=>Object.entries(sample).forEach(([k,v])=>f.elements[k].value=v);
  f.onsubmit=e=>{e.preventDefault();if(!Object.entries(sample).every(([k,v])=>f.elements[k].value===v))return;
  const data=read();save([{...sample,id:Math.max(1000,...data.map(x=>x.id))+1,status:'Új',date:new Date().toLocaleString('hu-HU')},...data]);f.reset();
