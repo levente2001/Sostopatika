@@ -10,6 +10,9 @@ service cloud.firestore {
    allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt','updatedBy']) && status(request.resource.data.status) && request.resource.data.updatedAt==request.time && request.resource.data.updatedBy==request.auth.uid;
    allow delete: if false;
   }
+  function validFaq(item){return item is map && item.keys().hasAll(['question','answer']) && item.keys().hasOnly(['question','answer']) && str(item.question,300) && str(item.answer,6000);}
+  function validFaqList(v){return v is list && v.size()<=10 && (v.size()<=0 || validFaq(v[0])) && (v.size()<=1 || validFaq(v[1])) && (v.size()<=2 || validFaq(v[2])) && (v.size()<=3 || validFaq(v[3])) && (v.size()<=4 || validFaq(v[4])) && (v.size()<=5 || validFaq(v[5])) && (v.size()<=6 || validFaq(v[6])) && (v.size()<=7 || validFaq(v[7])) && (v.size()<=8 || validFaq(v[8])) && (v.size()<=9 || validFaq(v[9]));}
+  match /siteContent/faq {allow read: if true; allow create,update: if admin() && request.resource.data.keys().hasAll(['items','updatedAt','updatedBy']) && request.resource.data.keys().hasOnly(['items','updatedAt','updatedBy']) && validFaqList(request.resource.data.items) && request.resource.data.updatedAt==request.time && request.resource.data.updatedBy==request.auth.uid; allow delete: if false;}
   match /{document=**} {allow read,write: if false;}
  }
 }
